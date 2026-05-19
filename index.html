@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ショップアプリ トスアップ AI判定</title>
+<title>Shopアプリ トスアップ AI判定</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -62,8 +62,8 @@
 <body>
 <div class="wrap">
   <div class="app-header">
-    <div class="app-badge">SHOP APP SCORER v7.0</div>
-    <h1>ショップアプリ<br>トスアップ AI判定</h1>
+    <div class="app-badge">SHOP APP SCORER v7.1</div>
+    <h1>Shopアプリ<br>トスアップ AI判定</h1>
     <p>議事録を貼り付けるだけで、6項目を自動解析してトスアップ判定します。</p>
   </div>
 
@@ -112,7 +112,6 @@ async function analyze() {
     const jsonMatch = resultText.match(/\{[\s\S]*\}/);
     renderResult(JSON.parse(jsonMatch[0]), notes);
   } catch (e) {
-    // 【究極のセーフティ】通信が弾かれた場合は、ローカル超高精度判別システムが自動で肩代わり
     setTimeout(() => { generateLocalResult(notes); }, 1000);
   } finally {
     btn.disabled = false;
@@ -123,7 +122,6 @@ async function analyze() {
 let lastParsedData = null;
 
 function generateLocalResult(notes) {
-  // 議事録の文脈からキーワードを完全自動でガチ判定するロジック
   const hasMgmt = /顧客|会員|名簿|台帳|カード|アプリ/g.test(notes) && !/不満なし|課題なし|不要/g.test(notes);
   const hasRepeat = /リピート|リピーター|売上向上|販促|ファン/g.test(notes);
   const hasSmaregi = /スマレジ|レジ/g.test(notes);
@@ -131,7 +129,6 @@ function generateLocalResult(notes) {
   const hasDecision = /オーナー|社長|決裁|本人|同席/g.test(notes);
   const hasUrgent = /今月|来月|すぐ|急ぎ|オープン|開業/g.test(notes);
 
-  // ユーザーが最も重視していた「触れていない項目は容赦なく0点にする」を完全再現
   const scores = [
     { item: '顧客管理の課題', score: hasMgmt ? 3 : 0, reason: hasMgmt ? '現在の会員管理・名簿運用に課題を感じている' : '議事録に顧客管理課題の明確な記載なしのため0点' },
     { item: 'リピーター育成ニーズ', score: hasRepeat ? 3 : 0, reason: hasRepeat ? 'オープン後のリピート対策への関心が高い' : '議事録にリピート施策ニーズの記載なしのため0点' },
@@ -209,7 +206,7 @@ function copySlack() {
   if (!lastParsedData) return;
   const d = lastParsedData;
   const total = (d.scores || []).reduce((a, s) => a + (s.score||0), 0);
-  let text = `【ショップアプリ 確度スコア報告】\n`;
+  let text = `【Shopアプリ 確度スコア報告】\n`;
   text += `社名: ${d.customer.company || '不明'}\n判定: ${total}/18点\n\n■スコア内訳\n`;
   (d.scores || []).forEach(s => { text += `・${s.item}: ${s.score}点 [${s.reason}]\n`; });
   text += `\n■サマリー\n${d.summary}`;
