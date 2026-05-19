@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ショップアプリ トスアップ AI判定</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F4F3EF;
+    --surface: #FFFFFF;
+    --border: rgba(0,0,0,0.07);
+    --border-mid: rgba(0,0,0,0.12);
+    --text: #1A1A1A;
+    --muted: #888;
+    --light: #C0BDB6;
+    --green: #1D9E75;
+    --green-l: #E1F5EE;
+    --green-d: #085041;
+    --amber: #EF9F27;
+    --amber-l: #FEF3E0;
+    --amber-d: #7A4810;
+    --red: #E24B4A;
+    --red-l: #FCEAEA;
+    --red-d: #7A1F1F;
+    --blue: #3B82F6;
+    --blue-l: #EFF6FF;
+    --r: 14px;
+    --rs: 9px;
+  }
+
+  body {
+    font-family: 'Noto Sans JP', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 28px 16px 60px;
+  }
+
+  .wrap { max-width: 680px; margin: 0 auto; }
+
+  /* ヘッダー */
+  .app-header { margin-bottom: 28px; }
+  .app-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--text); color: #fff;
+    font-size: 10px; font-weight: 700; letter-spacing: .08em;
+    padding: 4px 12px; border-radius: 99px; margin-bottom: 10px;
+  }
+  .app-badge::before { content: '✕'; font-size: 9px; opacity: .7; }
+  .app-header h1 { font-size: 22px; font-weight: 900; line-height: 1.25; margin-bottom: 4px; }
+  .app-header p { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+  /* 入力エリア */
+  .input-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border-mid);
+    border-radius: var(--r);
+    padding: 20px;
+    margin-bottom: 14px;
+  }
+  .input-label {
+    font-size: 11px; font-weight: 700; color: var(--muted);
+    letter-spacing: .06em; margin-bottom: 8px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .input-hint {
+    font-size: 10px; font-weight: 400; color: var(--light);
+    background: var(--bg); padding: 2px 8px; border-radius: 99px;
+  }
+  textarea#notes {
+    width: 100%; min-height: 160px;
+    border: 1.5px solid var(--border-mid); border-radius: var(--rs);
+    padding: 12px 14px; font-size: 13px; font-family: inherit;
+    color: var(--text); background: var(--bg); resize: vertical;
+    line-height: 1.7; transition: border-color .15s;
+  }
+  textarea#notes:focus { outline: none; border-color: var(--green); background: #fff; }
+  textarea#notes::placeholder { color: var(--light); font-size: 12px; line-height: 1.8; }
+
+  .btn-analyze {
+    width: 100%; padding: 14px;
+    background: var(--text); color: #fff;
+    border: none; border-radius: var(--rs);
+    font-size: 14px; font-weight: 700; font-family: inherit;
+    cursor: pointer; transition: opacity .15s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin-top: 12px;
+  }
+  .btn-analyze:hover { opacity: .85; }
+  .btn-analyze:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-analyze .icon { font-size: 16px; }
+
+  /* ローディング */
+  .loading {
+    display: none; text-align: center; padding: 32px 0;
+    color: var(--muted); font-size: 13px;
+  }
+  .loading.show { display: block; }
+  .spinner {
+    width: 28px; height: 28px;
+    border: 2px solid var(--border-mid);
+    border-top-color: var(--green);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    margin: 0 auto 10px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* エラー */
+  .error-box {
+    display: none; background: var(--red-l);
+    border: 0.5px solid var(--red);
+    border-radius: var(--rs); padding: 12px 16px;
+    font-size: 12px; color: var(--red-d); line-height: 1.6;
+    margin-bottom: 14px;
+  }
+  .error-box.show { display: block; }
+
+  /* 結果エリア */
+  #result { display: none; animation: fadeUp .35s ease; }
+  #result.show { display: block; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .section-divider {
+    height: 0.5px; background: var(--border-mid); margin: 18px 0;
+  }
+
+  /* 顧客情報カード */
+  .customer-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border-mid);
+    border-radius: var(--r);
+    padding: 18px 20px;
+    margin-bottom: 12px;
+  }
+  .customer-top {
+    display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px;
+  }
+  .customer-avatar {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: var(--text); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 900; flex-shrink: 0;
+  }
+  .customer-name { font-size: 16px; font-weight: 700; line-height: 1.3; margin-bottom: 2px; }
+  .customer-meta { font-size: 11px; color: var(--muted); line-height: 1.6; }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  @media(min-width:480px){ .info-grid { grid-template-columns: repeat(4,1fr); } }
+  .info-box {
+    background: var(--bg); border-radius: var(--rs); padding: 10px 12px;
+  }
+  .info-box-label { font-size: 10px; color: var(--muted); margin-bottom: 3px; font-weight: 500; }
+  .info-box-value { font-size: 13px; font-weight: 700; line-height: 1.35; }
+  .info-box-sub { font-size: 10px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+  .val-green { color: var(--green); }
+  .val-amber { color: var(--amber-d); }
+  .val-red { color: var(--red); }
+
+  /* スコアカード */
+  .score-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border-mid);
+    border-radius: var(--r);
+    padding: 18px 20px;
+    margin-bottom: 12px;
+  }
+  .score-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .score-card-title {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 700;
+  }
+  .score-card-title::before {
+    content: '✕'; display: inline-block; width: 18px; height: 18px;
+    background: var(--text); color: #fff; font-size: 9px; font-weight: 700;
+    border-radius: 4px; display: flex; align-items: center; justify-content: center;
+  }
+  .auto-badge {
+    font-size: 10px; font-weight: 700; letter-spacing: .05em;
+    background: var(--green-l); color: var(--green-d);
+    padding: 3px 9px; border-radius: 99px;
+  }
+
+  /* 判定バナー */
+  .verdict-banner {
+    border-radius: var(--rs); padding: 16px 18px;
+    text-align: center; margin-bottom: 18px;
+  }
+  .verdict-banner.green { background: var(--green-l); border: 0.5px solid var(--green); }
+  .verdict-banner.amber { background: var(--amber-l); border: 0.5px solid var(--amber); }
+  .verdict-banner.red   { background: var(--red-l);   border: 0.5px solid var(--red); }
+  .verdict-score {
+    font-size: 22px; font-weight: 900; margin-bottom: 2px;
+  }
+  .verdict-score .pts { font-size: 14px; font-weight: 500; opacity: .7; margin-left: 3px; }
+  .verdict-label { font-size: 13px; font-weight: 700; }
+  .verdict-sub { font-size: 11px; opacity: .8; margin-top: 3px; }
+  .green .verdict-score, .green .verdict-label { color: var(--green-d); }
+  .amber .verdict-score, .amber .verdict-label { color: var(--amber-d); }
+  .red   .verdict-score, .red   .verdict-label { color: var(--red-d); }
+
+  /* スコア行 */
+  .score-rows { display: flex; flex-direction: column; gap: 12px; }
+  .score-row { }
+  .score-row-top {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 4px;
+  }
+  .score-row-name { font-size: 13px; font-weight: 700; }
+  .score-row-pts { font-size: 13px; font-weight: 700; }
+  .pts-fill { color: var(--green); }
+  .pts-sep { color: var(--light); margin: 0 1px; }
+  .pts-max { color: var(--light); font-size: 12px; }
+  .score-bar-bg {
+    height: 5px; background: var(--bg); border-radius: 99px; overflow: hidden;
+    margin-bottom: 4px;
+  }
+  .score-bar-fill {
+    height: 100%; border-radius: 99px;
+    transition: width .6s cubic-bezier(.4,0,.2,1);
+  }
+  .bar-green { background: var(--green); }
+  .bar-amber { background: var(--amber); }
+  .bar-red   { background: var(--red); }
+  .score-row-reason { font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+  /* AIサマリー */
+  .summary-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border-mid);
+    border-radius: var(--r);
+    padding: 18px 20px;
+    margin-bottom: 12px;
+  }
+  .section-title {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 700; margin-bottom: 12px;
+  }
+  .section-title::before {
+    content: '✕'; display: inline-block; width: 18px; height: 18px;
+    background: var(--text); color: #fff; font-size: 9px; font-weight: 700;
+    border-radius: 4px; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .summary-text { font-size: 13px; line-height: 1.85; color: var(--text); }
+
+  /* 次のアクション */
+  .actions-list { display: flex; flex-direction: column; gap: 8px; }
+  .action-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: var(--bg); border-radius: var(--rs); padding: 11px 13px;
+    font-size: 13px; line-height: 1.5;
+  }
+  .action-check {
+    width: 18px; height: 18px; border-radius: 4px;
+    background: var(--text); color: #fff; font-size: 9px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 1px;
+  }
+
+  /* リセット */
+  .btn-reset {
+    width: 100%; padding: 11px;
+    background: transparent; color: var(--muted);
+    border: 0.5px solid var(--border-mid); border-radius: var(--rs);
+    font-size: 12px; font-family: inherit; cursor: pointer;
+    margin-top: 8px; transition: background .15s;
+  }
+  .btn-reset:hover { background: var(--surface); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="app-header">
+    <div class="app-badge">SHOP APP SCORER</div>
+    <h1>ショップアプリ<br>トスアップ AI判定</h1>
+    <p>議事録を貼り付けるだけで、6項目を自動解析してトスアップ判定します。</p>
+  </div>
+
+  <!-- 入力エリア -->
+  <div class="input-card">
+    <div class="input-label">
+      議事録・対応メモ
+      <span class="input-hint">貼り付けてボタンを押すだけ</span>
+    </div>
+    <textarea id="notes" placeholder="ここに議事録やオンボ対応メモを貼り付けてください。
+
+例）
+・株式会社○○ 山田様、カフェ+アルコール業態、今月末オープン予定
+・会員管理はやりたいとのこと。LINEで新メニュー告知したい。
+・オーナー本人が参加。5/11以降にショップアプリの詳細説明の機会をいただく予定
+・スマレジの初期設定は完了。これから本番稼働。"></textarea>
+    <button class="btn-analyze" id="analyzeBtn" onclick="analyze()">
+      <span class="icon">⚡</span> 自動解析する
+    </button>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    議事録を解析しています…
+  </div>
+
+  <!-- 結果 -->
+  <div id="result">
+
+    <!-- 顧客情報 -->
+    <div class="customer-card" id="customerCard"></div>
+
+    <!-- スコア -->
+    <div class="score-card">
+      <div class="score-header">
+        <div class="score-card-title">ショップアプリ トスアップ判定</div>
+        <div class="auto-badge">自動解析</div>
+      </div>
+      <div class="verdict-banner" id="verdictBanner"></div>
+      <div class="score-rows" id="scoreRows"></div>
+    </div>
+
+    <!-- AIサマリー -->
+    <div class="summary-card">
+      <div class="section-title">AIサマリー</div>
+      <div class="summary-text" id="summaryText"></div>
+    </div>
+
+    <!-- 次のアクション -->
+    <div class="summary-card">
+      <div class="section-title">次のアクション</div>
+      <div class="actions-list" id="actionsList"></div>
+    </div>
+
+    <button class="btn-reset" onclick="reset()">← 別の議事録を解析する</button>
+  </div>
+
+</div>
+
+<script>
+const CATEGORIES = [
+  { key: 'customer_mgmt',  label: '顧客管理の課題'      },
+  { key: 'repeat_needs',   label: 'リピーター育成ニーズ' },
+  { key: 'smaregi_usage',  label: 'スマレジ活用度'       },
+  { key: 'dm_desire',      label: 'DM・クーポン配信意欲' },
+  { key: 'decision_maker', label: '決裁者の同席'         },
+  { key: 'line_env',       label: 'LINE・デジタル環境'   },
+];
+
+const SYSTEM_PROMPT = `あなたはスマレジのアカウント営業サポートAIです。
+渡された議事録・対応メモを解析し、以下のJSON形式のみで回答してください。
+
+採点基準（各カテゴリ 0〜3点）：
+- customer_mgmt（顧客管理の課題）: 3=会員管理の課題が明確/ゼロから始める, 2=課題はあるが曖昧, 1=既存の仕組みがありやや硬直, 0=課題なし
+- repeat_needs（リピーター育成ニーズ）: 3=「やりたい」と明言/具体的イメージあり, 2=興味はある, 1=将来的に検討, 0=不要と言及
+- smaregi_usage（スマレジ活用度）: 3=本番稼働中・十分活用, 2=設定済みだが本番前/活用途中, 1=設定中/始めたばかり, 0=未設定
+- dm_desire（DM・クーポン配信意欲）: 3=具体的な配信内容をイメージしている, 2=配信したい意向あり, 1=なんとなく興味, 0=不要
+- decision_maker（決裁者の同席）: 3=決裁者が同席・即決可能, 2=同席しているが次回アポ必要, 1=担当者のみ・上長確認が必要, 0=不在
+- line_env（LINE・デジタル環境）: 3=公式LINE運用中/デジタルリテラシー高い, 2=LINE作成予定/SNS活用あり, 1=検討中/不明, 0=LINE不要と言及
+
+トスアップ推奨基準：
+- 今すぐトスアップ: 合計12点以上
+- 次回アポ後: 7〜11点
+- 見送り・継続観察: 0〜6点
+
+必ず以下のJSONのみを返してください（前後に説明文を入れないこと）：
+{
+  "customer": {
+    "company": "会社名（不明なら「不明」）",
+    "person": "担当者名（不明なら「不明」）",
+    "date": "対応日・オンボ日（不明なら「不明」）",
+    "business": "業態・業種（不明なら「不明」）"
+  },
+  "summary_cards": {
+    "smaregi": { "label": "活用状況を一言で", "detail": "詳細を10文字以内" },
+    "member":  { "label": "会員管理ニーズを一言で", "detail": "詳細を15文字以内" },
+    "dm":      { "label": "DM意欲を一言で", "detail": "詳細を15文字以内" },
+    "decision":{ "label": "決裁者を一言で", "detail": "詳細を15文字以内" }
+  },
+  "scores": [
+    { "key": "customer_mgmt",  "score": 0, "reason": "根拠を20文字以内で" },
+    { "key": "repeat_needs",   "score": 0, "reason": "根拠を20文字以内で" },
+    { "key": "smaregi_usage",  "score": 0, "reason": "根拠を20文字以内で" },
+    { "key": "dm_desire",      "score": 0, "reason": "根拠を20文字以内で" },
+    { "key": "decision_maker", "score": 0, "reason": "根拠を20文字以内で" },
+    { "key": "line_env",       "score": 0, "reason": "根拠を20文字以内で" }
+  ],
+  "summary": "全体サマリーを3〜4文で。顧客の状況・ニーズ・トスアップの根拠を簡潔に。",
+  "actions": [
+    "次のアクション1（具体的に）",
+    "次のアクション2",
+    "次のアクション3"
+  ]
+}`;
+
+async function analyze() {
+  const notes = document.getElementById('notes').value.trim();
+  if (!notes) {
+    showError('議事録を入力してください。');
+    return;
+  }
+
+  const btn = document.getElementById('analyzeBtn');
+  btn.disabled = true;
+  document.getElementById('loading').classList.add('show');
+  document.getElementById('errorBox').classList.remove('show');
+  document.getElementById('result').classList.remove('show');
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: notes }]
+      })
+    });
+
+    if (!res.ok) throw new Error(`API Error: ${res.status}`);
+    const data = await res.json();
+    const raw = data.content.find(b => b.type === 'text')?.text || '';
+    const jsonStr = raw.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(jsonStr);
+    renderResult(parsed);
+
+  } catch (e) {
+    showError('解析に失敗しました。議事録の内容を確認して再試行してください。（' + e.message + '）');
+  } finally {
+    btn.disabled = false;
+    document.getElementById('loading').classList.remove('show');
+  }
+}
+
+function renderResult(d) {
+  // 顧客カード
+  const initial = (d.customer.company || '?').charAt(0);
+  const sc = d.summary_cards || {};
+  document.getElementById('customerCard').innerHTML = `
+    <div class="customer-top">
+      <div class="customer-avatar">${initial}</div>
+      <div>
+        <div class="customer-name">${esc(d.customer.company)} | ${esc(d.customer.person)} 様</div>
+        <div class="customer-meta">オンボーディング日：${esc(d.customer.date)}　／　${esc(d.customer.business)}</div>
+      </div>
+    </div>
+    <div class="info-grid">
+      <div class="info-box">
+        <div class="info-box-label">スマレジ活用度</div>
+        <div class="info-box-value">${esc(sc.smaregi?.label||'—')}</div>
+        <div class="info-box-sub">${esc(sc.smaregi?.detail||'')}</div>
+      </div>
+      <div class="info-box">
+        <div class="info-box-label">会員管理ニーズ</div>
+        <div class="info-box-value val-green">${esc(sc.member?.label||'—')}</div>
+        <div class="info-box-sub">${esc(sc.member?.detail||'')}</div>
+      </div>
+      <div class="info-box">
+        <div class="info-box-label">DM・配信意欲</div>
+        <div class="info-box-value val-green">${esc(sc.dm?.label||'—')}</div>
+        <div class="info-box-sub">${esc(sc.dm?.detail||'')}</div>
+      </div>
+      <div class="info-box">
+        <div class="info-box-label">決裁者</div>
+        <div class="info-box-value">${esc(sc.decision?.label||'—')}</div>
+        <div class="info-box-sub">${esc(sc.decision?.detail||'')}</div>
+      </div>
+    </div>
+  `;
+
+  // スコア計算
+  const scoreMap = {};
+  (d.scores || []).forEach(s => { scoreMap[s.key] = s; });
+  const total = Object.values(scoreMap).reduce((a, s) => a + (s.score||0), 0);
+  const maxTotal = CATEGORIES.length * 3; // 18
+
+  let verdictClass, verdictLabel, verdictSub;
+  if (total >= 12) {
+    verdictClass = 'green';
+    verdictLabel = '今すぐトスアップ';
+    verdictSub = 'ニーズ・環境・決裁者がそろっています';
+  } else if (total >= 7) {
+    verdictClass = 'amber';
+    verdictLabel = '次回アポ後にトス';
+    verdictSub = '条件が整い次第トスアップ推奨';
+  } else {
+    verdictClass = 'red';
+    verdictLabel = '見送り・継続観察';
+    verdictSub = '現時点では時期尚早の可能性あり';
+  }
+
+  document.getElementById('verdictBanner').className = `verdict-banner ${verdictClass}`;
+  document.getElementById('verdictBanner').innerHTML = `
+    <div class="verdict-score">${verdictLabel}<span class="pts">　${total} / ${maxTotal}点</span></div>
+    <div class="verdict-sub">${verdictSub}</div>
+  `;
+
+  // スコア行
+  const rowsHtml = CATEGORIES.map(cat => {
+    const s = scoreMap[cat.key] || { score: 0, reason: '情報なし' };
+    const pct = (s.score / 3) * 100;
+    const barClass = s.score >= 3 ? 'bar-green' : s.score >= 2 ? 'bar-green' : s.score === 1 ? 'bar-amber' : 'bar-red';
+    return `
+      <div class="score-row">
+        <div class="score-row-top">
+          <div class="score-row-name">${esc(cat.label)}</div>
+          <div class="score-row-pts">
+            <span class="pts-fill">${s.score}</span>
+            <span class="pts-sep">/</span>
+            <span class="pts-max">3</span>
+          </div>
+        </div>
+        <div class="score-bar-bg">
+          <div class="score-bar-fill ${barClass}" style="width:${pct}%"></div>
+        </div>
+        <div class="score-row-reason">${esc(s.reason||'')}</div>
+      </div>`;
+  }).join('');
+  document.getElementById('scoreRows').innerHTML = rowsHtml;
+
+  // サマリー
+  document.getElementById('summaryText').textContent = d.summary || '';
+
+  // アクション
+  document.getElementById('actionsList').innerHTML = (d.actions || []).map(a => `
+    <div class="action-item">
+      <div class="action-check">✕</div>
+      <span>${esc(a)}</span>
+    </div>`).join('');
+
+  document.getElementById('result').classList.add('show');
+  document.getElementById('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function showError(msg) {
+  const box = document.getElementById('errorBox');
+  box.textContent = msg;
+  box.classList.add('show');
+}
+
+function reset() {
+  document.getElementById('result').classList.remove('show');
+  document.getElementById('notes').value = '';
+  document.getElementById('notes').focus();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function esc(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
